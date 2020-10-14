@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Static Template</title>
+    <style>
+      #pagination {
+        display: inline-block;
+      }
+
+      #pagination button {
+        border: none;
+        background-color: #fff;
+        color: black;
+        float: left;
+        padding: 8px 16px;
+        text-decoration: none;
+      }
+
+      #pagination button.active {
+        background-color: #4caf50;
+        color: white;
+        border-radius: 5px;
+      }
+
+      #pagination button:hover:not(.active) {
+        background-color: #ddd;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="pages"></div>
+    <div id="pagination"></div>
+
+    <script>
+      const data = [
+        [{ a: 1 }],
+        [{ a: 2 }],
+        [{ a: 3 }],
+        [{ a: 4 }],
+        [{ a: 5 }],
+        [{ a: 6 }],
+        [{ a: 7 }],
+        [{ a: 8 }],
+        [{ a: 9 }],
+        [{ a: 10 }]
+      ];
+
+      const paginationStore = buildPagination({ totalPages: data.length });
+
+      paginationStore.subscribe(() =>
+        renderPagination(data, paginationStore.get())
+      );
+
+      function renderPages(data) {
+        const pages = document.querySelector("#pages");
+        pages.innerHTML = "";
+        data.forEach((d, i) => {
+          const page = document.createElement("div");
+          page.id = (i + 1).toString();
+          page.style.display = "none";
+          page.textContent = JSON.stringify(d);
+          pages.append(page);
+        });
+      }
+
+      function renderPagination(data, store) {
+        const { currentPage, offset, totalPages } = store;
+
+        document.querySelectorAll("#pages div").forEach((page) => {
+          page.style.display = "none";
+        });
+        const page = document.getElementById(currentPage);
+        page.style.display = "block";
+
+        const prev = document.createElement("button");
+        const dots1 = document.createElement("button");
+        const dots2 = document.createElement("button");
+        const firstPage = document.createElement("button");
+        const lastPage = document.createElement("button");
+        const next = document.createElement("button");
+
+        function manageOffset(direction, pageNumber) {
+          if (direction === "next") {
+            if (currentPage > 1 && currentPage < totalPages - 2) {
+              return currentPage;
+            }
+            if (currentPage >= totalPages - 2) {
+              return totalPages - 2;
+            }
+            return 1;
+          }
+          if (direction === "prev") {
+            if (currentPage < totalPages && currentPage > 3) {
+              return currentPage - 2;
+            }
+            if (currentPage <= 3) {
+              return 1;
+            }
+            return totalPages - 2;
+          }
+          if (pageNumber < 3) {
+            return 1;
+          }
+          if (pageNumber > totalPages - 2) {
+            return totalPages - 2;
+          }
+          return pageNumber - 1;
+        }
+
+        function pageLinkHandler(pageNumber) {
+          return function () {
+            paginationStore.set({
+              currentPage: pageNumber,
+              offset: manageOffset(null, pageNumber),
+              totalPages
+            });
+          };
+        }
+
+        function nextHandler() {
+          return function () {
+            paginationStore.set({
+              currentPage:
+                currentPage < totalPages ? currentPage + 1 : totalPages,
+              offset: manageOffset("next", null),
+              totalPages
+            });
+          };
+        }
+
+        function prevHandler() {
+          return function () {
+            paginationStore.set({
+              currentPage: currentPage > 1 ? currentPage - 1 : 1,
+              offset: manageOffset("prev", null),
+              totalPages
+            });
+          };
+        }
+
+        prev.textContent = "<<";
+        dots1.textContent = "...";
+        dots2.textContent = "...";
+        firstPage.textContent = "1";
+        lastPage.textContent = totalPages.toString();
+        next.textContent = ">>";
+
+        dots1.disabled = true;
+        dots2.disabled = true;
+
+        prev.onclick = prevHandler();
+        next.onclick = nextHandler();
+        lastPage.onclick = pageLinkHandler(totalPages);
+        if (currentPage === totalPages) {
+          lastPage.classList.add("active");
+        }
+
+        firstPage.onclick = pageLinkHandler(1);
+
+        const pagination = document.querySelector("#pagination");
+        pagination.innerHTML = "";
+
+        if (currentPage > 1) {
+          pagination.append(prev);
+        }
+        if (currentPage >= 3) {
+          pagination.append(firstPage);
+          pagination.append(dots1);
+        }
+
+        [0, 1, 2].forEach((i) => {
+          const pageNumber = i + offset;
+          const page = document.createElement("button");
+          page.onclick = pageLinkHandler(pageNumber);
+          if (pageNumber === currentPage) {
+            page.classList.add("active");
+          }
+          page.textContent = pageNumber.toString();
+
+          pagination.append(page);
+        });
+
+        if (currentPage < totalPages - 1) {
+          pagination.append(dots2);
+          pagination.append(lastPage);
+        }
+        if (currentPage < totalPages) {
+          pagination.append(next);
+        }
+      }
+
+      function buildPagination({ totalPages, currentPage = 1, offset = 1 }) {
+        let paginationObject = {
+          currentPage,
+          offset,
+          totalPages
+        };
+        let listeners = [];
+
+        function get() {
+          return paginationObject;
+        }
+
+        function set(data) {
+          paginationObject = data;
+          listeners.forEach((fn) => {
+            fn();
+          });
+        }
+
+        function subscribe(fn) {
+          listeners.push(fn);
+          return function () {
+            const indexOfFn = listeners.indexOf(fn);
+            listeners = [
+              ...listeners.slice(0, indexOfFn),
+              ...listeners.slice(indexOfFn + 1)
+            ];
+          };
+        }
+
+        return Object.freeze({
+          get,
+          set,
+          subscribe
+        });
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        renderPages(data);
+        renderPagination(data, paginationStore.get());
+      });
+    </script>
+  </body>
+</html>
